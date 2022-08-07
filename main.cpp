@@ -4,56 +4,90 @@
 #include <string>
 #include <vector>
 
-#define MAXIMUM_BUFFER_SIZE  128
+#define MAXIMUM_BUFFER_SIZE 32
 
-//test data
-//M:1:700:0:100:1:700:0:100:E
-//M:0:100:1:700:0:100:1:700:E
+// test data
+// M:1:700:0:100:1:700:0:100:E
+// M:0:100:1:700:0:100:1:700:E
 
+int ctoi_ori(char c) {
+  switch (c) {
+  case '0':
+    return 0;
+    break;
+  case '1':
+    return 1;
+    break;
+  case '2':
+    return 2;
+    break;
+  case '3':
+    return 3;
+    break;
+  case '4':
+    return 4;
+    break;
+  case '5':
+    return 5;
+    break;
+  case '6':
+    return 6;
+    break;
+  case '7':
+    return 7;
+    break;
+  case '8':
+    return 8;
+    break;
+  case '9':
+    return 9;
+    break;
 
-class msgCreater{
-public:
-    std::vector<float> VecString2VecFloat(const std::string& vecString){
-        std::vector<float> motorPower;
-        auto splitedData = split(vecString, ':');
-        splitedData.pop_back();
-        splitedData.erase(std::cbegin(splitedData));
-        
-        for(std::vector<std::string>::size_type counter = 0; counter < splitedData.size() ; counter += 2){
-            if(splitedData[counter] == "1"){
-                motorPower.push_back(float(std::stoi(splitedData[counter+1])) / 1000.0);
-            }else if(splitedData[counter] == "0"){
-                motorPower.push_back((float(std::stoi(splitedData[counter+1])) / 1000.0) * -1);
-            }
-        }
-        return motorPower;
+  default:
+    return 0;
+    break;
+  }
+}
+
+double pwrCreater(char *data, int n, int index) {
+  char cut_data[16][16] = {{0}};
+  int cnt_index = 0;
+  int cnt_char = 0;
+  for (int i = 0; i < n; i++) {
+    if (data[i] == ':') {
+      cnt_index++;
+      cnt_char = 0;
+    } else {
+      cut_data[cnt_index][cnt_char] = data[i];
+      cnt_char++;
     }
-    
-private:
-    std::vector<std::string> split(const std::string &s, char delim) {
-        std::vector<std::string> elems;
-        std::string item;
-        for (char ch: s) {
-            if (ch == delim) {
-                if (!item.empty())
-                    elems.push_back(item);
-                item.clear();
-            }
-            else {
-                item += ch;
-            }
-        }
-        if (!item.empty()){
-            elems.push_back(item);
-        }
-            
-        return elems;
+  }
+
+  size_t size = std::strlen(cut_data[index * 2 + 2]);
+  if (cut_data[index * 2 + 1][0] == '1') {
+    double rt = 0.0;
+
+    for (int x = 0; x < size; x++) {
+      rt += (double)(ctoi_ori(cut_data[index * 2 + 2][x]) *
+                     std::pow(10, (size - x - 1)));
     }
-};
+    return rt / 1000;
+
+  } else if (cut_data[index * 2 + 1][0] == '0') {
+    double rt = 0.0;
+    for (int x = 0; x < size; x++) {
+      rt += (double)(ctoi_ori(cut_data[index * 2 + 2][x]) *
+                     std::pow(10, (size - x - 1)) * -1);
+    }
+    return rt / 1000;
+  }
+
+  return -1.0;
+}
 
 static BufferedSerial serial_port(USBTX, USBRX);
 
-//pin setup
+// pin setup
 PwmOut FR_pwm(PB_8);
 PwmOut FL_pwm(PB_9);
 PwmOut RR_pwm(PA_5);
@@ -64,69 +98,89 @@ DigitalOut FL_dgital(PC_8);
 DigitalOut RR_dgital(PC_6);
 DigitalOut RL_dgital(PC_5);
 
+int main() {
 
+  // Serial
+  serial_port.set_baud(115200);
+  serial_port.set_format(8, BufferedSerial::None, 1);
+  char buf[MAXIMUM_BUFFER_SIZE] = {0};
 
-int main()
-{
-    msgCreater builder = msgCreater();
+  // PWM setup
+  FR_pwm.period_us(100);
+  FL_pwm.period_us(100);
+  RR_pwm.period_us(100);
+  RL_pwm.period_us(100);
 
-    // Serial
-    serial_port.set_baud(115200);
-    serial_port.set_format(8,BufferedSerial::None,1);
-    char buf[MAXIMUM_BUFFER_SIZE] = {0};
-    std::string bufString = "";
+  char pwrData[32] = {0};
+  uint32_t pdConter = 0;
 
-    //PWM setup
-    FR_pwm.period_us(100); 
-    FL_pwm.period_us(100); 
-    RR_pwm.period_us(100); 
-    RL_pwm.period_us(100); 
+  while (1) {
+    if (uint32_t num = serial_port.read(buf, sizeof(buf))) {
+      for (uint32_t i = 0; i < num; i++) {
+        if (buf[i] == 'M') {
+          pdConter = 0;
+          for (uint8_t j = 0; j < 32; j++) {
+            pwrData[j] = 0;
+          }
 
-    while (1) {
-        if(uint32_t num = serial_port.read(buf, sizeof(buf))){
-            std::string convert2string = std::string(buf);
-            bufString += convert2string;
-            if(convert2string.find("E") != std::string::npos){
-                serial_port.write(bufString.c_str(), bufString.size());
-                auto motorPower = builder.VecString2VecFloat(bufString);
+          pwrData[pdConter] = buf[i];
+          pdConter++;
+        } else if (buf[i] == '0' || buf[i] == '1' || buf[i] == '2' ||
+                   buf[i] == '3' || buf[i] == '4' || buf[i] == '5' ||
+                   buf[i] == '6' || buf[i] == '7' || buf[i] == '8' ||
+                   buf[i] == '9' || buf[i] == ':') {
+          pwrData[pdConter] = buf[i];
+          pdConter++;
+        } else if (buf[i] == 'E') {
+          pwrData[pdConter] = buf[i];
+          serial_port.write(pwrData, sizeof(pwrData));
+          char c = '\n';
+          serial_port.write(&c, sizeof(c));
 
-                if(motorPower[0] >= 0.0){
-                    FR_pwm.write(motorPower[0]);
-                    FR_dgital.write(1);
-                }else{
-                    FR_pwm.write(motorPower[0] * -1);
-                    FR_dgital.write(0);
-                }
+          double motorPower[4] = {0.0};
+          motorPower[0] = pwrCreater(buf, sizeof(buf), 0);
+          motorPower[1] = pwrCreater(buf, sizeof(buf), 1);
+          motorPower[2] = pwrCreater(buf, sizeof(buf), 2);
+          motorPower[3] = pwrCreater(buf, sizeof(buf), 3);
 
-                if(motorPower[1] >= 0.0){
-                    FL_pwm.write(motorPower[1]);
-                    FL_dgital.write(1);
-                }else{
-                    FL_pwm.write(motorPower[1] * -1);
-                    FL_dgital.write(0);
-                }
+          if (motorPower[0] >= 0.0) {
+            FR_pwm.write(motorPower[0]);
+            FR_dgital.write(1);
+          } else {
+            FR_pwm.write(motorPower[0] * -1);
+            FR_dgital.write(0);
+          }
 
-                if(motorPower[2] >= 0.0){
-                    RR_pwm.write(motorPower[2]);
-                    RR_dgital.write(1);
-                }else{
-                    RR_pwm.write(motorPower[2] * -1);
-                    RR_dgital.write(0);
-                }
+          if (motorPower[1] >= 0.0) {
+            FL_pwm.write(motorPower[1]);
+            FL_dgital.write(1);
+          } else {
+            FL_pwm.write(motorPower[1] * -1);
+            FL_dgital.write(0);
+          }
 
-                if(motorPower[3] >= 0.0){
-                    RL_pwm.write(motorPower[3]);
-                    RL_dgital.write(0);
-                }else{
-                    RL_pwm.write(motorPower[3] * -1);
-                    RL_dgital.write(0);
-                }
+          if (motorPower[2] >= 0.0) {
+            RR_pwm.write(motorPower[2]);
+            RR_dgital.write(1);
+          } else {
+            RR_pwm.write(motorPower[2] * -1);
+            RR_dgital.write(0);
+          }
 
-                bufString = "";
-            }
-            for(int i = 0; i < 128 ; i++){
-                buf[i] = 0;
-            }
+          if (motorPower[3] >= 0.0) {
+            RL_pwm.write(motorPower[3]);
+            RL_dgital.write(0);
+          } else {
+            RL_pwm.write(motorPower[3] * -1);
+            RL_dgital.write(0);
+          }
+
+          pdConter = 0;
+          for (uint8_t j = 0; j < 32; j++) {
+            pwrData[j] = 0;
+          }
         }
+      }
     }
+  }
 }
