@@ -80,9 +80,9 @@ double pwrCreater(char *data, int n, int index) {
                      std::pow(10, (size - x - 1)) * -1);
     }
     return rt / 1000;
+  }else{
+      return 0;
   }
-
-  return -1.0;
 }
 
 static BufferedSerial serial_port(USBTX, USBRX);
@@ -101,7 +101,7 @@ DigitalOut RL_dgital(PC_5);
 int main() {
 
   // Serial
-  serial_port.set_baud(115200);
+  serial_port.set_baud(230400);
   serial_port.set_format(8, BufferedSerial::None, 1);
   char buf[MAXIMUM_BUFFER_SIZE] = {0};
 
@@ -133,15 +133,19 @@ int main() {
           pdConter++;
         } else if (buf[i] == 'E') {
           pwrData[pdConter] = buf[i];
-          serial_port.write(pwrData, sizeof(pwrData));
-          char c = '\n';
-          serial_port.write(&c, sizeof(c));
+          //serial_port.write(pwrData, sizeof(pwrData));
+          //char c = '\t';
+          //serial_port.write(&c, sizeof(c));
 
           double motorPower[4] = {0.0};
-          motorPower[0] = pwrCreater(buf, sizeof(buf), 0);
-          motorPower[1] = pwrCreater(buf, sizeof(buf), 1);
-          motorPower[2] = pwrCreater(buf, sizeof(buf), 2);
-          motorPower[3] = pwrCreater(buf, sizeof(buf), 3);
+          motorPower[0] = pwrCreater(pwrData, sizeof(pwrData), 0);
+          motorPower[1] = pwrCreater(pwrData, sizeof(pwrData), 1);
+          motorPower[2] = pwrCreater(pwrData, sizeof(pwrData), 2);
+          motorPower[3] = pwrCreater(pwrData, sizeof(pwrData), 3);
+
+          //char debug[128] = {0};
+          //sprintf(debug, "Debug:0:%d:1:%d:2:%d:3:%d\n" , (int)(motorPower[0] * 1000.0), (int)(motorPower[1] * 1000.0), (int)(motorPower[2] * 1000.0), (int)(motorPower[3] * 1000.0));
+          //serial_port.write(&debug, sizeof(debug));
 
           if (motorPower[0] >= 0.0) {
             FR_pwm.write(motorPower[0]);
