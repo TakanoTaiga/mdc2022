@@ -173,10 +173,10 @@ int main() {
 
           if (motorPower[3] >= 0.0) {
             RL_pwm.write(motorPower[3]);
-            RL_dgital.write(0);
+            RL_dgital.write(1);
           } else {
             RL_pwm.write(motorPower[3] * -1);
-            RL_dgital.write(1);
+            RL_dgital.write(0);
           }
 
           pdConter = 0;
