@@ -176,7 +176,7 @@ int main() {
             RL_dgital.write(0);
           } else {
             RL_pwm.write(motorPower[3] * -1);
-            RL_dgital.write(0);
+            RL_dgital.write(1);
           }
 
           pdConter = 0;
