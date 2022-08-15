@@ -1,16 +1,23 @@
 #include "mbed.h"
+#include <cstdint>
 
 #define MAXIMUM_BUFFER_SIZE 32
 
 // test data
-// M:1:700:0:100:1:700:0:100:E
-// M:0:100:1:700:0:100:1:700:E
+// M:1:700:0:500:1:300:0:100:E
+// M:0:500:1:700:0:100:1:300:E
 
-int* pwrCreater(char *data) {
+// M:1:650:0:0:1:0:0:0:E
+// M:1:0:0:650:1:0:0:0:E
+// M:0:0:1:0:0:650:1:0:E
+// M:0:0:1:0:0:0:1:650:E
+
+
+uint32_t* pwrCreater(char *data) {
     char cut_data[16][8] = {{0}};
-    int cnt_index = 0;
-    int cnt_char = 0;
-    for (int i = 0; data[i] != 'E' && cnt_index < 15; i++) {
+    uint8_t cnt_index = 0;
+    uint8_t cnt_char = 0;
+    for (uint8_t i = 0; data[i] != 'E' && cnt_index < 15; i++) {
         if (data[i] == ':') {
             cnt_index++;
             cnt_char = 0;
@@ -20,8 +27,8 @@ int* pwrCreater(char *data) {
         }
     }
     
-    static int data_int[16] = {0};
-    for (int8_t i = 0; i < 14; i++) {
+    static uint32_t data_int[16] = {0};
+    for (uint8_t i = 0; i < 14; i++) {
         data_int[i] = std::atoi(cut_data[i + 1]);
     }
     
@@ -33,7 +40,7 @@ static BufferedSerial serial_port(USBTX, USBRX);
 // pin setup
 PwmOut V1_PWM(PB_8);
 PwmOut V2_PWM(PB_9);
-PwmOut V3_PWM(PA_5);
+PwmOut V3_PWM(PA_7); //PA_5 -> PA_7 //Connect PA_5 & PA_7
 PwmOut V4_PWM(PA_6);
 
 DigitalOut V1_Digital(PC_9);
@@ -77,40 +84,19 @@ int main() {
         } else if (buf[i] == 'E') {
           pwrData[pdConter] = buf[i];
 
-          int* motorPower = pwrCreater(pwrData);
+          uint32_t* motorPower = pwrCreater(pwrData);
 
-          if (*motorPower == 1) {
-            V1_PWM.pulsewidth_us(*(motorPower + 1));
-            V1_Digital = 1;
-          } else {
-            V1_PWM.pulsewidth_us(*(motorPower + 1));
-            V1_Digital = 0;
-          }
+          V1_PWM.pulsewidth_us(*(motorPower + 1));
+          V1_Digital = *(motorPower + 0);
 
-          if (*(motorPower + 2) == 1) {
-            V2_PWM.pulsewidth_us(*(motorPower + 3));
-            V2_Digital = 1;
-          } else {
-            V2_PWM.pulsewidth_us(*(motorPower + 3));
-            V2_Digital = 0;
-          }
+          V2_PWM.pulsewidth_us(*(motorPower + 3));
+          V2_Digital = *(motorPower + 2);
 
-          if (*(motorPower + 4) == 1) {
-            V3_PWM.pulsewidth_us(*(motorPower + 5));
-            V3_Digital = 1;
-          } else {
-            V3_PWM.pulsewidth_us(*(motorPower + 5));
-            V3_Digital = 0;
-          }
+          V3_PWM.pulsewidth_us(*(motorPower + 5));
+          V3_Digital = *(motorPower + 4);
 
-          if (*(motorPower + 6) == 1) {
-            V4_PWM.pulsewidth_us(*(motorPower + 7));
-            V4_Digital = 1;
-          } else {
-            V4_PWM.pulsewidth_us(*(motorPower + 7));
-            V4_Digital = 0;
-          }
-
+          V4_PWM.pulsewidth_us(*(motorPower + 7));
+          V4_Digital = *(motorPower + 6);
           pdConter = 0;
           for (uint8_t j = 0; j < 32; j++) {
             pwrData[j] = 0;
