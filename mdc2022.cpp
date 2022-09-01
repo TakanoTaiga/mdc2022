@@ -1,3 +1,4 @@
+#include "PinNames.h"
 #include "mbed.h"
 #include <cstdint>
 #include <cstdio>
@@ -22,29 +23,30 @@
 #define ENABLE_V7 DISABLE
 #define ENABLE_V8 DISABLE
 
-#define PWM_PIN_V1 PB_8
-#define PWM_PIN_V2 PB_9 
-#define PWM_PIN_V3 PA_7 //PA_5 -> PA_7 //Connect PA_5 & PA_7
+#define PWM_PIN_V1 PC_9
+#define PWM_PIN_V2 PB_8 
+#define PWM_PIN_V3 PB_9
 #define PWM_PIN_V4 PA_6
-#define PWM_PIN_V5 
-#define PWM_PIN_V6 
-#define PWM_PIN_V7 
-#define PWM_PIN_V8 
+#define PWM_PIN_V5 PB_6
+#define PWM_PIN_V6 PC_7
+#define PWM_PIN_V7 PA_9
+#define PWM_PIN_V8 PA_8
 
-#define DIGITAL_PIN_V1 PC_9
-#define DIGITAL_PIN_V2 PC_8
-#define DIGITAL_PIN_V3 PC_6
-#define DIGITAL_PIN_V4 PC_5
-#define DIGITAL_PIN_V5 PA_6
-#define DIGITAL_PIN_V6 
-#define DIGITAL_PIN_V7 
-#define DIGITAL_PIN_V8 
+#define DIGITAL_PIN_V1 PA_5
+#define DIGITAL_PIN_V2 PA_7
+#define DIGITAL_PIN_V3 PC_8
+#define DIGITAL_PIN_V4 PC_6
+#define DIGITAL_PIN_V5 PC_5
+#define DIGITAL_PIN_V6 PA_12
+#define DIGITAL_PIN_V7 PA_11
+#define DIGITAL_PIN_V8 PB_12
 
 // User settings end
 
 // test data
 // M:1:700:0:500:1:300:0:100:E
 // M:0:500:1:700:0:100:1:300:E
+// M:0:500:1:700:0:100:1:300:0:160:1:300:0:940:1:777:E
 
 // M:1:650:0:0:1:0:0:0:E
 // M:1:0:0:650:1:0:0:0:E
@@ -134,9 +136,61 @@ DigitalOut V7_Digital(DIGITAL_PIN_V7);
 DigitalOut V8_Digital(DIGITAL_PIN_V8);
 #endif
 
+Ticker safeTimer;
+bool safeFlag = false;
+int16_t safeCounter = 0;
+
+void safeCheck(){
+    if(safeFlag){
+        safeFlag = false;
+        safeCounter = 0;
+        return;
+    }else{
+        safeCounter++;
+    }
+
+    if(safeCounter > 1000){
+        safeCounter = 0;
+        safeFlag = false;
+        
+ #if ENABLE_V1
+          V1_PWM.pulsewidth_us(0);
+          V1_Digital = 0;
+#endif
+#if ENABLE_V2
+          V2_PWM.pulsewidth_us(0);
+          V2_Digital = 0;
+#endif
+#if ENABLE_V3
+          V3_PWM.pulsewidth_us(0);
+          V3_Digital = 0;
+#endif
+#if ENABLE_V4
+          V4_PWM.pulsewidth_us(0);
+          V4_Digital = 0;
+#endif
+#if ENABLE_V5
+          V5_PWM.pulsewidth_us(0);
+          V5_Digital = 0;
+#endif
+#if ENABLE_V6
+          V6_PWM.pulsewidth_us(0);
+          V6_Digital = 0;
+#endif
+#if ENABLE_V7
+          V7_PWM.pulsewidth_us(0);
+          V7_Digital = 0;
+#endif
+#if ENABLE_V8
+          V8_PWM.pulsewidth_us(0);
+          V8_Digital = 0;
+#endif
+    }
+}
 
 
 int main() {
+    safeTimer.attach(&safeCheck, 1ms);
 
   // Serial
   serial_port.set_baud(115200);
@@ -196,14 +250,13 @@ int main() {
             pdConter++;
             indexCount++;
         }else if (buf[i] == 'E') {
-          pwrData[pdConter] = buf[i]; // add data.
+            safeFlag = true;
 
-          //char bufOut[5];
-          //sprintf(bufOut, "%d\n" , indexCount);
-          serial_port.write(pwrData, strlen(pwrData));
+            pwrData[pdConter] = buf[i]; // add data.
 
-          int32_t* motorPower = pwrCreater(pwrData);
+            int32_t* motorPower = pwrCreater(pwrData);
 #ifdef REPORT_STATUS
+            serial_port.write(pwrData, strlen(pwrData));
             serial_port.write("\nBEGIN\n", 7);
             for(int16_t reportCounter = 0 ; reportCounter < MOTOR_COUNTS ; reportCounter++){
                 char reportsStatusBuffer[32] = {0};
