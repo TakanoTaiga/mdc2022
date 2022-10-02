@@ -25,23 +25,23 @@
 #define ENABLE_V7 ENABLE
 #define ENABLE_V8 DISABLE
 
-#define PWM_PIN_V1 PC_9
-#define PWM_PIN_V2 PB_8 
-#define PWM_PIN_V3 PB_9
-#define PWM_PIN_V4 PA_6
-#define PWM_PIN_V5 PB_6
-#define PWM_PIN_V6 PC_7
-#define PWM_PIN_V7 PA_9
-#define PWM_PIN_V8 PA_8
+#define PWM_PIN_V2 PC_9
+#define PWM_PIN_V1 PB_8 
+#define PWM_PIN_V4 PB_9
+#define PWM_PIN_V3 PA_6
+#define PWM_PIN_V6 PB_6
+#define PWM_PIN_V5 PC_7
+#define PWM_PIN_V8 PA_9
+#define PWM_PIN_V7 PA_8
 
-#define DIGITAL_PIN_V1 PA_5
-#define DIGITAL_PIN_V2 PA_7
-#define DIGITAL_PIN_V3 PC_8
-#define DIGITAL_PIN_V4 PC_6
-#define DIGITAL_PIN_V5 PC_5
-#define DIGITAL_PIN_V6 PA_12
-#define DIGITAL_PIN_V7 PA_11
-#define DIGITAL_PIN_V8 PB_12
+#define DIGITAL_PIN_V2 PA_5
+#define DIGITAL_PIN_V1 PA_7
+#define DIGITAL_PIN_V4 PC_8
+#define DIGITAL_PIN_V3 PC_6
+#define DIGITAL_PIN_V6 PC_5
+#define DIGITAL_PIN_V5 PA_12
+#define DIGITAL_PIN_V8 PA_11
+#define DIGITAL_PIN_V7 PB_12
 
 
 #define LIMIT_UP_V5 PC_0
@@ -119,24 +119,30 @@ DigitalOut V8_Digital(DIGITAL_PIN_V8);
 InterruptIn Pin_limit_up_v5(LIMIT_UP_V5);
 InterruptIn Pin_limit_down_v5(LIMIT_DOWN_V5);
 
-DigitalIn Pin_in_up_v5(LIMIT_UP_V5);
-DigitalIn Pin_in_down_v5(LIMIT_DOWN_V5);
-
 bool status_limit_up_v5 = BUTTON_LOW;
 bool status_limit_down_v5 = BUTTON_LOW;
 
 void 
 callback_limit_up_v5(){
-    V5_PWM.pulsewidth_us(0);
-    V5_Digital = 0;
     status_limit_up_v5 = BUTTON_HIGH;
+    V5_PWM.pulsewidth_us(0);
+    //V5_Digital = 0;
 }
 
 void 
 callback_limit_down_v5(){
-    V5_PWM.pulsewidth_us(0);
-    V5_Digital = 0;
     status_limit_down_v5 = BUTTON_HIGH;
+    V5_PWM.pulsewidth_us(0);
+}
+
+void
+callback_limit_up_v5_2(){
+    status_limit_up_v5 = BUTTON_LOW;
+}
+
+void 
+callback_limit_down_v5_2(){
+    status_limit_down_v5 = BUTTON_LOW;
 }
 
 #endif
@@ -196,12 +202,12 @@ void safeCheck(){
 
 int main() {
     #if ENABLE_V5
-    Pin_limit_up_v5.mode(PullDown);
-    Pin_limit_down_v5.mode(PullDown);
-    Pin_in_up_v5.mode(PullDown);
-    Pin_in_down_v5.mode(PullDown);
-    Pin_limit_up_v5.rise(&callback_limit_up_v5);
-    Pin_limit_down_v5.rise(&callback_limit_down_v5);
+    Pin_limit_up_v5.mode(PullUp);
+    Pin_limit_down_v5.mode(PullUp);
+    Pin_limit_up_v5.fall(&callback_limit_up_v5);
+    Pin_limit_down_v5.fall(&callback_limit_down_v5);
+    Pin_limit_up_v5.rise(&callback_limit_up_v5_2);
+    Pin_limit_down_v5.rise(&callback_limit_down_v5_2);
     #endif
 
     safeTimer.attach(&safeCheck, 1ms);
@@ -308,18 +314,16 @@ if(*(motorPower + 8)){
     // CW
     if(status_limit_up_v5 == BUTTON_LOW){
         V5_PWM.pulsewidth_us(*(motorPower + 9));
-        V5_Digital = 1;
+        V5_Digital = *(motorPower + 8);
     }
 }else{
     // CCW
     if(status_limit_down_v5 == BUTTON_LOW){
         V5_PWM.pulsewidth_us(*(motorPower + 9));
-        V5_Digital = 0;
+        V5_Digital = *(motorPower + 8);
     }
 }
 
-if(Pin_in_down_v5.read() == BUTTON_LOW){status_limit_down_v5 = BUTTON_LOW;}
-if(Pin_in_up_v5.read() == BUTTON_LOW){status_limit_up_v5 = BUTTON_LOW;}
 
           
 #endif
