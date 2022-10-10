@@ -10,56 +10,7 @@
 #include "macro.hpp"
 #include "stm32f4xx.h"
 #include "utils.hpp"
-
-// User settings
-#define REPORT_STATUS DISABLE
-
-#define PULSEWIDTH_US 1000
-
-#define ENABLE_V1 ENABLE
-#define ENABLE_V2 ENABLE
-#define ENABLE_V3 ENABLE
-#define ENABLE_V4 ENABLE
-#define ENABLE_V5 ENABLE
-#define ENABLE_V6 ENABLE
-#define ENABLE_V7 ENABLE
-#define ENABLE_V8 DISABLE
-
-#define PWM_PIN_V2 PC_9
-#define PWM_PIN_V1 PB_8 
-#define PWM_PIN_V4 PB_9
-#define PWM_PIN_V3 PA_6
-#define PWM_PIN_V6 PB_6
-#define PWM_PIN_V5 PC_7
-#define PWM_PIN_V8 PA_9
-#define PWM_PIN_V7 PA_8
-
-#define DIGITAL_PIN_V2 PA_5
-#define DIGITAL_PIN_V1 PA_7
-#define DIGITAL_PIN_V4 PC_8
-#define DIGITAL_PIN_V3 PC_6
-#define DIGITAL_PIN_V6 PC_5
-#define DIGITAL_PIN_V5 PA_12
-#define DIGITAL_PIN_V8 PA_11
-#define DIGITAL_PIN_V7 PB_12
-
-
-#define LIMIT_UP_V5 PC_0
-#define LIMIT_DOWN_V5 PC_1
-
-// User settings end
-
-// test data
-// M:1:700:0:500:1:300:0:100:E
-// M:0:500:1:700:0:100:1:300:E
-// M:0:500:1:700:0:100:1:300:0:160:1:300:0:940:1:777:E
-
-// M:1:650:0:0:1:0:0:0:E
-// M:1:0:0:650:1:0:0:0:E
-// M:0:0:1:0:0:650:1:0:E
-// M:0:0:1:0:0:0:1:650:E
-
-//M:0:0:1:0:0:0:1:650:0:0:E
+#include "settings.hpp"
 
 static BufferedSerial serial_port(USBTX, USBRX);
 
@@ -115,36 +66,52 @@ DigitalOut V7_Digital(DIGITAL_PIN_V7);
 DigitalOut V8_Digital(DIGITAL_PIN_V8);
 #endif
 
-#if ENABLE_V5
+#if ENABLE_LIMIT_SWITCH_V5
 InterruptIn Pin_limit_up_v5(LIMIT_UP_V5);
 InterruptIn Pin_limit_down_v5(LIMIT_DOWN_V5);
 
-bool status_limit_up_v5 = BUTTON_LOW;
-bool status_limit_down_v5 = BUTTON_LOW;
+bool status_limit_up_v5 = BUTTON_RELEASE;
+bool status_limit_down_v5 = BUTTON_RELEASE;
 
 void 
-callback_limit_up_v5(){
-    status_limit_up_v5 = BUTTON_HIGH;
+callback_limit_up_v5_fall(){
+    status_limit_up_v5 = BUTTON_PRESS;
     V5_PWM.pulsewidth_us(0);
-    //V5_Digital = 0;
 }
 
 void 
-callback_limit_down_v5(){
-    status_limit_down_v5 = BUTTON_HIGH;
+callback_limit_down_v5_fall(){
+    status_limit_down_v5 = BUTTON_PRESS;
     V5_PWM.pulsewidth_us(0);
 }
 
 void
-callback_limit_up_v5_2(){
-    status_limit_up_v5 = BUTTON_LOW;
+callback_limit_up_v5_rise(){
+    status_limit_up_v5 = BUTTON_RELEASE;
 }
 
 void 
-callback_limit_down_v5_2(){
-    status_limit_down_v5 = BUTTON_LOW;
+callback_limit_down_v5_rise(){
+    status_limit_down_v5 = BUTTON_RELEASE;
+}
+#endif
+
+#if ENABLE_SUPPORT_A_TEAM
+InterruptIn Pin_limit_back_a_team(LIMIT_BACK_A_TEAM);
+
+bool status_limit_back_a_team = BUTTON_PRESS;
+
+void
+callback_limit_back_a_team_fall(){
+    status_limit_back_a_team = BUTTON_PRESS;
+    V8_PWM.pulsewidth_us(0);
+    V7_PWM.pulsewidth_us(0);
 }
 
+void
+callback_limit_back_a_team_rise(){
+    status_limit_back_a_team = BUTTON_RELEASE;
+}
 #endif
 
 Ticker safeTimer;
@@ -201,15 +168,6 @@ void safeCheck(){
 
 
 int main() {
-    #if ENABLE_V5
-    Pin_limit_up_v5.mode(PullUp);
-    Pin_limit_down_v5.mode(PullUp);
-    Pin_limit_up_v5.fall(&callback_limit_up_v5);
-    Pin_limit_down_v5.fall(&callback_limit_down_v5);
-    Pin_limit_up_v5.rise(&callback_limit_up_v5_2);
-    Pin_limit_down_v5.rise(&callback_limit_down_v5_2);
-    #endif
-
     safeTimer.attach(&safeCheck, 1ms);
 
   // Serial
@@ -241,6 +199,25 @@ int main() {
 #endif
 #if ENABLE_V8
   V8_PWM.period_us(PULSEWIDTH_US);
+#endif
+
+#if ENABLE_LIMIT_SWITCH_V5
+    Pin_limit_up_v5.mode(PullUp);
+    Pin_limit_down_v5.mode(PullUp);
+
+    Pin_limit_up_v5.fall(&callback_limit_up_v5_fall);
+    Pin_limit_down_v5.fall(&callback_limit_down_v5_fall);
+
+    Pin_limit_up_v5.rise(&callback_limit_up_v5_rise);
+    Pin_limit_down_v5.rise(&callback_limit_down_v5_rise);
+#endif
+
+#if ENABLE_SUPPORT_A_TEAM
+    Pin_limit_back_a_team.mode(PullUp);
+    
+    Pin_limit_back_a_team.fall(&callback_limit_back_a_team_fall);
+
+    Pin_limit_back_a_team.rise(&callback_limit_back_a_team_rise);
 #endif
 
 
@@ -296,46 +273,73 @@ int main() {
           V1_PWM.pulsewidth_us(*(motorPower + 1));
           V1_Digital = *(motorPower + 0);
 #endif
+
 #if ENABLE_V2
           V2_PWM.pulsewidth_us(*(motorPower + 3));
           V2_Digital = *(motorPower + 2);
 #endif
+
 #if ENABLE_V3
           V3_PWM.pulsewidth_us(*(motorPower + 5));
           V3_Digital = *(motorPower + 4);
 #endif
+
 #if ENABLE_V4
           V4_PWM.pulsewidth_us(*(motorPower + 7));
           V4_Digital = *(motorPower + 6);
 #endif
 
-#if ENABLE_V5
+#if ENABLE_LIMIT_SWITCH_V5
 if(*(motorPower + 8)){
     // CW
-    if(status_limit_up_v5 == BUTTON_LOW){
+    if(status_limit_up_v5 == BUTTON_RELEASE){
         V5_PWM.pulsewidth_us(*(motorPower + 9));
         V5_Digital = *(motorPower + 8);
     }
 }else{
     // CCW
-    if(status_limit_down_v5 == BUTTON_LOW){
+    if(status_limit_down_v5 == BUTTON_RELEASE){
         V5_PWM.pulsewidth_us(*(motorPower + 9));
         V5_Digital = *(motorPower + 8);
     }
 }
-
-
-          
+#elif ENABLE_V5
+    V5_PWM.pulsewidth_us(*(motorPower + 9));
+    V5_Digital = *(motorPower + 8);
 #endif
+
+#if ENABLE_SUPPORT_A_TEAM
+if (*(motorPower + 10) == 1 &&
+    status_limit_back_a_team == BUTTON_RELEASE){
+
+    V8_PWM.pulsewidth_us(*(motorPower + 11));
+    V8_Digital = *(motorPower + 10);
+    V7_PWM.pulsewidth_us(*(motorPower + 11));
+    V7_Digital = *(motorPower + 10);
+
+}else{
+    V8_PWM.pulsewidth_us(*(motorPower + 11));
+    V8_Digital = *(motorPower + 10);
+    V7_PWM.pulsewidth_us(*(motorPower + 11));
+    V7_Digital = *(motorPower + 10);
+}
+#endif
+
 #if ENABLE_V6
           V6_PWM.pulsewidth_us(*(motorPower + 11));
           V6_Digital = *(motorPower + 10);
 #endif
-#if ENABLE_V7
+
+#if ENABLE_SUPPORT_A_TEAM
+
+#elif ENABLE_V7
           V7_PWM.pulsewidth_us(*(motorPower + 13));
           V7_Digital = *(motorPower + 12);
 #endif
-#if ENABLE_V8
+
+#if ENABLE_SUPPORT_A_TEAM
+
+#elif ENABLE_V8
           V8_PWM.pulsewidth_us(*(motorPower + 15));
           V8_Digital = *(motorPower + 14);
 #endif
